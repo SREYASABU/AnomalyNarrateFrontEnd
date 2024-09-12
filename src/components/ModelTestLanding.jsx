@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './../css/ModelTestLanding.css';
+import { useNavigate } from 'react-router-dom';
 
 function App() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState(null);
   const [uploadMessage, setUploadMessage] = useState('');
+  const [uploadResponse, setUploadResponse] = useState(null); // Store POST response
+  const navigate = useNavigate();
 
   // Handle drag events
   const handleDrag = (e) => {
@@ -39,31 +42,7 @@ function App() {
       setUploadMessage('Please upload a valid video file');
     }
   };
-  
-// Upload file to the backend server
-const uploadFile = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
 
-  try {
-    const response = await fetch('http://127.0.0.1:5000', { // Corrected URL
-      method: 'POST',
-      body: formData,
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      setUploadMessage(result.message || 'Video uploaded successfully');
-    } else {
-      setUploadMessage('Error uploading video');
-    }
-  } catch (error) {
-    setUploadMessage('Error uploading video: ' + error.message);
-  }
-};
-
-
-  // Handle start test button click
   const handleStartTest = () => {
     if (selectedFiles && selectedFiles.length > 0) {
       Array.from(selectedFiles).forEach((file) => uploadFile(file));
@@ -71,6 +50,82 @@ const uploadFile = async (file) => {
       setUploadMessage('Please select a video file first');
     }
   };
+
+  // Upload file to the backend server
+  const uploadFile = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // First fetch: Upload video
+      const response = await fetch('http://127.0.0.1:5000', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setUploadMessage(result.message || 'Video uploaded successfully');
+        setUploadResponse(result); // Store the response of the POST request
+      } else {
+        setUploadMessage('Error uploading video');
+      }
+    } catch (error) {
+      setUploadMessage('Error uploading video: ' + error.message);
+    }
+  };
+
+  // useEffect to perform GET request when the POST response changes
+  useEffect(() => {
+    if (!uploadResponse) return; // Do nothing if there's no POST response
+
+    const pollServerForResult = async () => {
+      try {
+        const narrationResponse = await new Promise((resolve, reject) => {
+          // Function to poll the server
+          const poll = async () => {
+            try {
+              const res = await fetch('http://127.0.0.1:5001/result', {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (res.ok) {
+                resolve(res); // Resolve when the result is available
+              } else {
+                setTimeout(poll, 3000); // Poll again after 3 seconds if no result
+              }
+            } catch (err) {
+              reject(err); // Handle fetch errors
+            }
+          };
+          poll(); // Start polling
+        });
+
+        // Once the narration response is received
+        if (narrationResponse.ok) {
+          const narrationResult = await narrationResponse.json();
+          console.log(narrationResult);
+          // Redirect to ModelTestDetect page with narration and video path
+          navigate('/modeltestdetect', {
+            state: {
+              narration: narrationResult.narration,
+              videoClipPath: narrationResult.video_clip_path,
+            },
+          });
+        } else {
+          setUploadMessage('Error generating narration');
+        }
+      } catch (error) {
+        setUploadMessage('Error fetching narration: ' + error.message);
+      }
+    };
+
+    // Start polling the server for result
+    pollServerForResult();
+  }, [uploadResponse, navigate]); // Trigger effect when 'uploadResponse' changes
 
   return (
     <div className="app-container">

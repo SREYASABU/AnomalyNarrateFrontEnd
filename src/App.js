@@ -6,6 +6,7 @@ import ModelTestNo from './components/ModelTestNo'; // Import the ModelTest comp
 import Progress from './components/Progress';
 import ModelTrainLanding from './components/ModelTrain';
 import ModelTestLanding from './components/ModelTestLanding';
+import ModelTestDetect from './components/ModelTestDetect';
 
 
 
@@ -24,6 +25,8 @@ function App() {
         <Route path="/modeltrainlanding" element={<ModelTrainLanding />} />
 
         <Route path="/modeltestlanding" element={<ModelTestLanding />} />
+
+        <Route path="/modeltestdetect" element={<ModelTestDetect />} />
 
 
       </Routes>
